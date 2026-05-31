@@ -269,8 +269,8 @@ export default function Home() {
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-12">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">App Menu</h1>
-            <p className="text-gray-500 text-sm mt-1">Your apps, one place</p>
+            <h1 className="text-3xl font-bold tracking-tight">Conductor Central</h1>
+            <p className="text-gray-500 text-sm mt-1">AI Projects</p>
           </div>
           <button
             onClick={() => setModal({ open: true, item: {} })}

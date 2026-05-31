@@ -1,0 +1,16 @@
+[Unit]
+Description=App Menu (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=roconnor
+WorkingDirectory=/home/roconnor/webmenu
+Environment=NODE_ENV=production
+Environment=NVM_DIR=/home/roconnor/.nvm
+ExecStart=/bin/bash -lc "source /home/roconnor/.nvm/nvm.sh && exec npm start -- -p 4000"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

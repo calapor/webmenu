@@ -1,36 +1,138 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Conductor Central
 
-## Getting Started
+A contemporary app-launcher dashboard. A grid of app tiles (name + image) that
+open in a single shared browser tab. Links are stored **server-side** so every
+visitor sees the same set, with full add / edit / delete in the UI.
 
-First, run the development server:
+- **Stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · TypeScript
+- **Storage:** shared JSON file on the server via `GET`/`PUT /api/apps`
+  (no database). Images are uploaded inline as data URLs.
+- **Tab behaviour:** every link targets one named window (`app-window`), so
+  clicking any app reuses that tab instead of piling up new ones.
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The page is `src/app/page.tsx`; the storage API is `src/app/api/apps/route.ts`.
+Locally the store is written to `./data/apps.json` (gitignored).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Production deployment
 
-## Learn More
+The app is deployed to the home server at **192.168.1.92**:
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js runs on **port 4000**, managed by **systemd** (`webmenu` service).
+- **Apache** reverse-proxies public **port 80** → `localhost:4000`.
+- Shared link data lives at `~/webmenu/data/apps.json` on the server.
+- Public URL: **http://192.168.1.92**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Deploy a change (build → sync → restart)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run from this workspace on your Mac:
 
-## Deploy on Vercel
+```bash
+pnpm build
+rsync -az --exclude node_modules --exclude .git --exclude data \
+  ./ roconnor@192.168.1.92:~/webmenu/
+ssh roconnor@192.168.1.92 'sudo systemctl restart webmenu'
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> **A restart is mandatory after every deploy.** `next start` loads the build
+> into memory at startup; rsync alone updates files on disk but the running
+> process keeps serving the old build until restarted. (Skipping this was the
+> cause of several "my change didn't show up" issues.)
+>
+> The `--exclude data` flag protects the live link store from being touched.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Startup / process management (systemd)
+
+The service auto-starts on boot and restarts on crash.
+
+```bash
+sudo systemctl status webmenu      # health + recent logs
+sudo systemctl restart webmenu     # apply a new build
+journalctl -u webmenu -f           # follow logs
+```
+
+Service unit (versioned at `deploy/webmenu.service`):
+
+```ini
+[Unit]
+Description=App Menu (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=roconnor
+WorkingDirectory=/home/roconnor/webmenu
+Environment=NODE_ENV=production
+Environment=NVM_DIR=/home/roconnor/.nvm
+ExecStart=/bin/bash -lc "source /home/roconnor/.nvm/nvm.sh && exec npm start -- -p 4000"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+---
+
+## One-time server setup
+
+Steps already performed on 192.168.1.92; documented for a rebuild.
+
+1. **Node 20+ via nvm** (Next.js 16 requires Node ≥ 20.9; the system Node 18 is
+   too old):
+   ```bash
+   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+   nvm install 20
+   ```
+
+2. **App code + dependencies:**
+   ```bash
+   # from the Mac:
+   rsync -az --exclude node_modules --exclude .git ./ roconnor@192.168.1.92:~/webmenu/
+   # on the server:
+   cd ~/webmenu && npm install --legacy-peer-deps
+   ```
+
+3. **systemd service:**
+   ```bash
+   sudo cp ~/webmenu/deploy/webmenu.service /etc/systemd/system/webmenu.service
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now webmenu
+   ```
+
+4. **Apache reverse proxy** (`/etc/apache2/sites-available/webmenu.conf`):
+   ```apache
+   <VirtualHost *:80>
+       ProxyPreserveHost On
+       ProxyPass / http://localhost:4000/
+       ProxyPassReverse / http://localhost:4000/
+   </VirtualHost>
+   ```
+   ```bash
+   sudo a2enmod proxy proxy_http
+   sudo a2ensite webmenu && sudo a2dissite 000-default
+   sudo systemctl reload apache2
+   ```
+
+5. **Passwordless restart** so deploys don't prompt for a password:
+   ```bash
+   echo 'roconnor ALL=(root) NOPASSWD: /usr/bin/systemctl restart webmenu' \
+     | sudo tee /etc/sudoers.d/webmenu
+   ```
+
+---
+
+## Notes
+
+- **No authentication.** Anyone who can reach the page on the LAN can add, edit,
+  or delete links. Fine for a home network; lock it down before exposing it.
+- **iOS Safari** does not reliably reuse per-app named tabs, which is why all
+  links share the single `app-window` target.

@@ -268,14 +268,14 @@ export default function Home() {
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-12">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Conductor Central</h1>
+            <h1 className="text-xl font-bold tracking-tight">Conductor Central</h1>
             <p className="text-gray-500 text-sm mt-1">AI Projects</p>
           </div>
           <button
             onClick={() => setModal({ open: true, item: {} })}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-lg shadow-indigo-500/20"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add App

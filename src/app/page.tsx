@@ -11,6 +11,8 @@ type AppItem = {
 
 const STORAGE_KEY = "app-menu-items";
 
+const genId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
 function Modal({
   item,
   onSave,
@@ -161,7 +163,7 @@ export default function Home() {
     if (modal.item?.id) {
       persist(items.map((i) => (i.id === modal.item!.id ? { ...i, ...data } : i)));
     } else {
-      persist([...items, { id: crypto.randomUUID(), ...data }]);
+      persist([...items, { id: genId(), ...data }]);
     }
     setModal({ open: false, item: null });
   };

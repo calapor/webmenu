@@ -26,11 +26,25 @@ function Modal({
   const [url, setUrl] = useState(item?.url ?? "");
   const [icon, setIcon] = useState(item?.icon ?? "");
 
+  const [error, setError] = useState("");
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !url.trim()) return;
-    const normalized = url.startsWith("http") ? url : `https://${url}`;
-    onSave({ name: name.trim(), url: normalized, icon: icon.trim() });
+    if (!url.trim()) {
+      setError("Please enter a URL.");
+      return;
+    }
+    const normalized = url.startsWith("http") ? url.trim() : `https://${url.trim()}`;
+    // Name is optional — fall back to the URL's hostname as the label.
+    let label = name.trim();
+    if (!label) {
+      try {
+        label = new URL(normalized).hostname.replace(/^www\./, "");
+      } catch {
+        label = normalized;
+      }
+    }
+    onSave({ name: label, url: normalized, icon: icon.trim() });
   };
 
   return (
@@ -45,7 +59,7 @@ function Modal({
         </h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1">
-            <span className="text-gray-400 text-sm">Name</span>
+            <span className="text-gray-400 text-sm">Name (optional)</span>
             <input
               autoFocus
               value={name}
@@ -73,6 +87,7 @@ function Modal({
               className="bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
             />
           </label>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3 mt-2 justify-end">
             <button
               type="button"

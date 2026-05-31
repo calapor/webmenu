@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type AppItem = {
   id: string;
   name: string;
   url: string;
-  icon: string;
+  image?: string; // data URL or remote image URL
+  icon?: string; // legacy emoji — still rendered when no image is set
 };
 
-const STORAGE_KEY = "app-menu-items";
+const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024; // keep the stored payload reasonable
 
 const genId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -24,9 +25,27 @@ function Modal({
 }) {
   const [name, setName] = useState(item?.name ?? "");
   const [url, setUrl] = useState(item?.url ?? "");
-  const [icon, setIcon] = useState(item?.icon ?? "");
-
+  const [image, setImage] = useState(item?.image ?? "");
   const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("That file isn't an image.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError("Image is too large (max 1.5 MB).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImage(reader.result as string);
+      setError("");
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +63,7 @@ function Modal({
         label = normalized;
       }
     }
-    onSave({ name: label, url: normalized, icon: icon.trim() });
+    onSave({ name: label, url: normalized, image: image || undefined });
   };
 
   return (
@@ -77,16 +96,44 @@ function Modal({
               className="bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-gray-400 text-sm">Icon (emoji, optional)</span>
-            <input
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              placeholder="🚀"
-              maxLength={4}
-              className="bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
-            />
-          </label>
+          <div className="flex flex-col gap-2">
+            <span className="text-gray-400 text-sm">Image (optional)</span>
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 shrink-0 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center overflow-hidden">
+                {image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={image} alt="preview" className="w-full h-full object-contain" />
+                ) : (
+                  <span className="text-gray-600 text-2xl">🖼️</span>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFile(e.target.files?.[0])}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-sm hover:bg-white/10 transition-colors"
+                >
+                  Choose image…
+                </button>
+                {image && (
+                  <button
+                    type="button"
+                    onClick={() => setImage("")}
+                    className="px-3 py-1.5 rounded-lg text-red-400 text-sm hover:bg-red-500/10 transition-colors text-left"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3 mt-2 justify-end">
             <button
@@ -109,6 +156,23 @@ function Modal({
   );
 }
 
+function AppThumb({ item }: { item: AppItem }) {
+  if (item.image) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={item.image} alt="" className="w-14 h-14 object-contain rounded-xl" />
+    );
+  }
+  if (item.icon) {
+    return <span className="text-4xl select-none">{item.icon}</span>;
+  }
+  return (
+    <span className="w-14 h-14 rounded-xl bg-indigo-500/20 flex items-center justify-center text-2xl font-semibold text-indigo-300 select-none">
+      {(item.name.charAt(0) || "?").toUpperCase()}
+    </span>
+  );
+}
+
 function AppCard({
   item,
   onEdit,
@@ -126,7 +190,7 @@ function AppCard({
         rel="noopener noreferrer"
         className="flex flex-col items-center justify-center gap-3 h-40 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 cursor-pointer"
       >
-        <span className="text-4xl select-none">{item.icon || "🔗"}</span>
+        <AppThumb item={item} />
         <span className="text-white font-medium text-sm text-center px-3 leading-tight">
           {item.name}
         </span>
@@ -163,15 +227,20 @@ export default function Home() {
   });
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setItems(JSON.parse(stored));
-    } catch {}
+    fetch("/api/apps")
+      .then((r) => r.json())
+      .then((data) => Array.isArray(data) && setItems(data))
+      .catch(() => {});
   }, []);
 
+  // Shared server-side store — everyone who loads the page sees the same links.
   const persist = (next: AppItem[]) => {
     setItems(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    fetch("/api/apps", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => {});
   };
 
   const handleSave = (data: Omit<AppItem, "id">) => {

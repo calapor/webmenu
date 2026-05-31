@@ -186,7 +186,7 @@ function AppCard({
     <div className="group relative">
       <a
         href={item.url}
-        target="_blank"
+        target={`app-${item.id}`}
         rel="noopener noreferrer"
         className="flex flex-col items-center justify-center gap-3 h-40 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 cursor-pointer"
       >

@@ -4,6 +4,16 @@ A contemporary app-launcher dashboard. A grid of app tiles (name + image) that
 open in a single shared browser tab. Links are stored **server-side** so every
 visitor sees the same set, with full add / edit / delete in the UI.
 
+The page is split into two regions:
+
+- **Projects** — Conductor & project-related work.
+- **Bookmarks** — saved links.
+
+Each tile carries a `category` (`project` | `bookmark`) chosen via the **Region**
+toggle in the add/edit modal, so items can be (re)classified at any time. Each
+region has its own **Add** button that presets the category. Items saved before
+this feature default to **Projects**.
+
 - **Stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · TypeScript
 - **Storage:** shared JSON file on the server via `GET`/`PUT /api/apps`
   (no database). Images are uploaded inline as data URLs.

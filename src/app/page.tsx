@@ -2,13 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 
+type Category = "project" | "bookmark";
+
 type AppItem = {
   id: string;
   name: string;
   url: string;
   image?: string; // data URL or remote image URL
   icon?: string; // legacy emoji — still rendered when no image is set
+  category?: Category; // missing → treated as "project"
 };
+
+const categoryOf = (item: AppItem): Category => item.category ?? "project";
 
 const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024; // keep the stored payload reasonable
 
@@ -26,6 +31,7 @@ function Modal({
   const [name, setName] = useState(item?.name ?? "");
   const [url, setUrl] = useState(item?.url ?? "");
   const [image, setImage] = useState(item?.image ?? "");
+  const [category, setCategory] = useState<Category>(item?.category ?? "project");
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -63,7 +69,7 @@ function Modal({
         label = normalized;
       }
     }
-    onSave({ name: label, url: normalized, image: image || undefined });
+    onSave({ name: label, url: normalized, image: image || undefined, category });
   };
 
   return (
@@ -77,6 +83,25 @@ function Modal({
           {item?.id ? "Edit App" : "Add App"}
         </h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-gray-400 text-sm">Region</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(["project", "bookmark"] as Category[]).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    category === c
+                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                  }`}
+                >
+                  {c === "project" ? "Project" : "Bookmark"}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="flex flex-col gap-1">
             <span className="text-gray-400 text-sm">Name (optional)</span>
             <input
@@ -218,6 +243,56 @@ function AppCard({
   );
 }
 
+function Section({
+  title,
+  subtitle,
+  items,
+  onAdd,
+  onEdit,
+  onDelete,
+}: {
+  title: string;
+  subtitle: string;
+  items: AppItem[];
+  onAdd: () => void;
+  onEdit: (item: AppItem) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="mb-14">
+      <div className="flex items-end justify-between mb-5 border-b border-white/10 pb-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+          <p className="text-gray-500 text-xs mt-0.5">{subtitle}</p>
+        </div>
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-indigo-500/50 hover:bg-white/10 text-gray-300 text-xs font-medium transition-all"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add
+        </button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-gray-600 text-sm py-6">Nothing here yet — hit “Add”.</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {items.map((item) => (
+            <AppCard
+              key={item.id}
+              item={item}
+              onEdit={() => onEdit(item)}
+              onDelete={() => onDelete(item.id)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Home() {
   const [items, setItems] = useState<AppItem[]>([]);
   const [modal, setModal] = useState<{ open: boolean; item: Partial<AppItem> | null }>({
@@ -266,45 +341,28 @@ export default function Home() {
       />
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
-        <div className="flex items-center justify-between mb-12">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Conductor Central</h1>
-            <p className="text-gray-500 text-sm mt-1">AI Projects</p>
-          </div>
-          <button
-            onClick={() => setModal({ open: true, item: {} })}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-lg shadow-indigo-500/20"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add App
-          </button>
+        <div className="mb-12">
+          <h1 className="text-xl font-bold tracking-tight">Conductor Central</h1>
+          <p className="text-gray-500 text-sm mt-1">AI Projects</p>
         </div>
 
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <span className="text-6xl">🧭</span>
-            <p className="text-gray-500 text-lg">No apps yet — add your first one</p>
-            <button
-              onClick={() => setModal({ open: true, item: {} })}
-              className="mt-2 px-5 py-2.5 rounded-xl border border-white/10 hover:border-indigo-500/50 text-gray-400 hover:text-white text-sm transition-all"
-            >
-              + Add App
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {items.map((item) => (
-              <AppCard
-                key={item.id}
-                item={item}
-                onEdit={() => setModal({ open: true, item })}
-                onDelete={() => handleDelete(item.id)}
-              />
-            ))}
-          </div>
-        )}
+        <Section
+          title="Projects"
+          subtitle="Conductor & project-related work"
+          items={items.filter((i) => categoryOf(i) === "project")}
+          onAdd={() => setModal({ open: true, item: { category: "project" } })}
+          onEdit={(item) => setModal({ open: true, item })}
+          onDelete={handleDelete}
+        />
+
+        <Section
+          title="Bookmarks"
+          subtitle="Saved links"
+          items={items.filter((i) => categoryOf(i) === "bookmark")}
+          onAdd={() => setModal({ open: true, item: { category: "bookmark" } })}
+          onEdit={(item) => setModal({ open: true, item })}
+          onDelete={handleDelete}
+        />
       </div>
 
       {modal.open && (

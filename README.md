@@ -1,24 +1,32 @@
-# Conductor Central
+# App Menu
 
-A contemporary app-launcher dashboard. A grid of app tiles (name + image) that
-open in a single shared browser tab. Links are stored **server-side** so every
-visitor sees the same set, with full add / edit / delete in the UI.
+A personal home-server app launcher. A grid of tiles (name + image) that open
+in a single shared browser tab. Links are stored **server-side** in a JSON file
+so every visitor on the network sees the same set, with full add / edit / delete
+in the UI.
 
 The page is split into two regions:
 
-- **Projects** — Conductor & project-related work.
-- **Bookmarks** — saved links.
+- **Projects** — work-related links and tools.
+- **Bookmarks** — saved sites and services.
 
 Each tile carries a `category` (`project` | `bookmark`) chosen via the **Region**
 toggle in the add/edit modal, so items can be (re)classified at any time. Each
 region has its own **Add** button that presets the category. Items saved before
 this feature default to **Projects**.
 
-- **Stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · TypeScript
-- **Storage:** shared JSON file on the server via `GET`/`PUT /api/apps`
-  (no database). Images are uploaded inline as data URLs.
-- **Tab behaviour:** every link targets one named window (`app-window`), so
-  clicking any app reuses that tab instead of piling up new ones.
+## Features
+
+- **Two-region layout** — Projects and Bookmarks with independent Add buttons
+- **Full CRUD in the UI** — add, edit, and delete tiles without touching config files
+- **Inline image upload** — drag or pick any image (≤ 1.5 MB); stored as a data URL alongside the link
+- **Tab reuse** — every link targets the same named window (`app-window`) so clicking any tile reuses one tab instead of opening new ones
+- **Server-side shared storage** — all visitors see the same link set; changes are instantly visible to everyone on the network
+- **No database** — data lives in a single JSON file, easy to back up or edit by hand
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · TypeScript
 
 ## Local development
 
@@ -30,26 +38,39 @@ pnpm dev          # http://localhost:3000
 The page is `src/app/page.tsx`; the storage API is `src/app/api/apps/route.ts`.
 Locally the store is written to `./data/apps.json` (gitignored).
 
+## Configuration
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATA_DIR` | `<cwd>/data` | Directory where `apps.json` is stored. Override to keep data outside the app directory. |
+| `PORT` | `3000` | Port for `next start`. Pass via `-p` flag (e.g. `npm start -- -p 4000`). |
+
+Example — store data in a persistent location:
+
+```bash
+DATA_DIR=/var/lib/webmenu/data npm start -- -p 4000
+```
+
 ---
 
 ## Production deployment
 
-The app is deployed to the home server at **192.168.1.92**:
+Deploy to a home server running Linux with systemd and Apache (or nginx).
 
 - Next.js runs on **port 4000**, managed by **systemd** (`webmenu` service).
 - **Apache** reverse-proxies public **port 80** → `localhost:4000`.
 - Shared link data lives at `~/webmenu/data/apps.json` on the server.
-- Public URL: **http://192.168.1.92**
+- Public URL: `http://<your-server-ip>`
 
 ### Deploy a change (build → sync → restart)
 
-Run from this workspace on your Mac:
+Run from your Mac:
 
 ```bash
 pnpm build
 rsync -az --exclude node_modules --exclude .git --exclude data \
-  ./ roconnor@192.168.1.92:~/webmenu/
-ssh roconnor@192.168.1.92 'sudo systemctl restart webmenu'
+  ./ <username>@<your-server-ip>:~/webmenu/
+ssh <username>@<your-server-ip> 'sudo systemctl restart webmenu'
 ```
 
 > **A restart is mandatory after every deploy.** `next start` loads the build
@@ -69,35 +90,21 @@ sudo systemctl restart webmenu     # apply a new build
 journalctl -u webmenu -f           # follow logs
 ```
 
-Service unit (versioned at `deploy/webmenu.service`):
+Service unit is at `deploy/webmenu.service` — it is a **template**; replace
+`<username>` with your actual Linux username before installing:
 
-```ini
-[Unit]
-Description=App Menu (Next.js)
-After=network.target
-
-[Service]
-Type=simple
-User=roconnor
-WorkingDirectory=/home/roconnor/webmenu
-Environment=NODE_ENV=production
-Environment=NVM_DIR=/home/roconnor/.nvm
-ExecStart=/bin/bash -lc "source /home/roconnor/.nvm/nvm.sh && exec npm start -- -p 4000"
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+```bash
+sed 's/<username>/yourname/g' deploy/webmenu.service \
+  | sudo tee /etc/systemd/system/webmenu.service
 ```
 
 ---
 
 ## One-time server setup
 
-Steps already performed on 192.168.1.92; documented for a rebuild.
+Steps to perform on a fresh server.
 
-1. **Node 20+ via nvm** (Next.js 16 requires Node ≥ 20.9; the system Node 18 is
-   too old):
+1. **Node 20+ via nvm** (Next.js 16 requires Node ≥ 20.9):
    ```bash
    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
    nvm install 20
@@ -105,15 +112,16 @@ Steps already performed on 192.168.1.92; documented for a rebuild.
 
 2. **App code + dependencies:**
    ```bash
-   # from the Mac:
-   rsync -az --exclude node_modules --exclude .git ./ roconnor@192.168.1.92:~/webmenu/
+   # from your Mac:
+   rsync -az --exclude node_modules --exclude .git ./ <username>@<your-server-ip>:~/webmenu/
    # on the server:
    cd ~/webmenu && npm install --legacy-peer-deps
    ```
 
-3. **systemd service:**
+3. **systemd service** (substitute your username first — see above):
    ```bash
-   sudo cp ~/webmenu/deploy/webmenu.service /etc/systemd/system/webmenu.service
+   sed 's/<username>/yourname/g' ~/webmenu/deploy/webmenu.service \
+     | sudo tee /etc/systemd/system/webmenu.service
    sudo systemctl daemon-reload
    sudo systemctl enable --now webmenu
    ```
@@ -134,7 +142,7 @@ Steps already performed on 192.168.1.92; documented for a rebuild.
 
 5. **Passwordless restart** so deploys don't prompt for a password:
    ```bash
-   echo 'roconnor ALL=(root) NOPASSWD: /usr/bin/systemctl restart webmenu' \
+   echo '<username> ALL=(root) NOPASSWD: /usr/bin/systemctl restart webmenu' \
      | sudo tee /etc/sudoers.d/webmenu
    ```
 
@@ -142,7 +150,11 @@ Steps already performed on 192.168.1.92; documented for a rebuild.
 
 ## Notes
 
-- **No authentication.** Anyone who can reach the page on the LAN can add, edit,
-  or delete links. Fine for a home network; lock it down before exposing it.
+- **No authentication.** Anyone who can reach the page can add, edit, or delete
+  links. Fine for a trusted home network; before exposing it more broadly,
+  add a layer such as:
+  - Apache/nginx HTTP basic auth
+  - VPN-only access (WireGuard, Tailscale)
+  - Firewall rules restricting the port to specific IPs
 - **iOS Safari** does not reliably reuse per-app named tabs, which is why all
   links share the single `app-window` target.

@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=roconnor
-WorkingDirectory=/home/roconnor/webmenu
+User=<username>
+WorkingDirectory=/home/<username>/webmenu
 Environment=NODE_ENV=production
-Environment=NVM_DIR=/home/roconnor/.nvm
-ExecStart=/bin/bash -lc "source /home/roconnor/.nvm/nvm.sh && exec npm start -- -p 4000"
+Environment=NVM_DIR=/home/<username>/.nvm
+ExecStart=/bin/bash -lc "source /home/<username>/.nvm/nvm.sh && exec npm start -- -p 4000"
 Restart=on-failure
 RestartSec=5
 

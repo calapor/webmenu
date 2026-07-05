@@ -27,7 +27,12 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <div style={{ position: 'fixed', bottom: 8, right: 12, fontSize: 11, color: '#444', userSelect: 'none', pointerEvents: 'none' }}>
+          {process.env.APP_VERSION ?? 'dev'}
+        </div>
+      </body>
     </html>
   );
 }

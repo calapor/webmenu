@@ -8,6 +8,7 @@ User=root
 WorkingDirectory=/opt/webmenu
 EnvironmentFile=/etc/webmenu.env
 Environment=NODE_ENV=production
+Environment=DATA_DIR=/var/lib/webmenu
 ExecStart=/usr/bin/npm start -- -p 4000
 Restart=on-failure
 RestartSec=5

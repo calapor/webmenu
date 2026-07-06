@@ -37,13 +37,14 @@ spec:
         stage('Prepare') {
             steps {
                 sh 'apt-get update -qq && apt-get install -y -qq openssh-client rsync'
+                sh 'npm install -g pnpm --silent'
                 sh 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && ssh-keyscan -H 192.168.1.92 >> ~/.ssh/known_hosts'
             }
         }
         stage('Build') {
             steps {
-                sh 'npm ci'
-                sh 'APP_VERSION="$(echo $GIT_COMMIT | cut -c1-7) (#$BUILD_NUMBER)" npm run build'
+                sh 'pnpm install'
+                sh 'APP_VERSION="$(echo $GIT_COMMIT | cut -c1-7) (#$BUILD_NUMBER)" pnpm run build'
             }
         }
         stage('Sync') {

@@ -22,7 +22,6 @@ do_sync() {
 do_build() {
   ssh "$REMOTE" "bash -lc \"
     set -e
-    source ~/.nvm/nvm.sh
     cd '$REMOTE_DIR'
     npm install --legacy-peer-deps
     APP_VERSION='$APP_VERSION' npm run build

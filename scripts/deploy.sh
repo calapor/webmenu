@@ -27,7 +27,11 @@ do_install() {
 }
 
 do_restart() {
-  ssh "$REMOTE" "systemctl restart webmenu"
+  ssh "$REMOTE" "
+    cp '$REMOTE_DIR/deploy/webmenu.service' /etc/systemd/system/webmenu.service
+    systemctl daemon-reload
+    systemctl restart webmenu
+  "
 }
 
 case "${1:-all}" in
